@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spider Clock</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #1a1a2e;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            overflow: hidden;
+        }
+
+        .clock-container {
+            position: relative;
+            width: min(70vh, 85vw);
+            max-width: 500px;
+            aspect-ratio: 1;
+            animation: containerBreathe 6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+
+        @keyframes containerBreathe {
+            0%, 100% { transform: scale(1) translateY(0); }
+            50% { transform: scale(1.01) translateY(-3px); }
+        }
+
+        .clock-container::before {
+            content: '';
+            position: absolute;
+            inset: -20px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,255,255,0.03) 0%, transparent 70%);
+            animation: ambientPulse 4s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        @keyframes ambientPulse {
+            0%, 100% { opacity: 0.5; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.05); }
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* White spider in center - matching screenshot */
+        .spider {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80px;
+            height: 80px;
+            z-index: 10;
+            animation: spiderFloat 4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+            filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.4));
+            transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .spider:hover {
+            transform: translate(-50%, -50%) scale(1.15) rotate(5deg);
+        }
+
+        @keyframes spiderFloat {
+            0%, 100% { transform: translate(-50%, -50%) translateY(0) rotate(0deg); }
+            25% { transform: translate(-50%, -50%) translateY(-8px) rotate(-3deg); }
+            50% { transform: translate(-50%, -50%) translateY(-3px) rotate(2deg); }
+            75% { transform: translate(-50%, -50%) translateY(-6px) rotate(-1deg); }
+        }
+
+        /* Audio control */
+        .audio-control {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 10px 16px;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            z-index: 100;
+        }
+
+        .audio-btn {
+            background: none;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 5px;
+            transition: transform 0.2s;
+        }
+
+        .audio-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .volume-slider {
+            width: 80px;
+            height: 4px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 2px;
+            outline: none;
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            background: #fff;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .volume-slider::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            background: #fff;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="clock-container">
+        <canvas id="clockCanvas"></canvas>
+        
+        <!-- White spider matching screenshot -->
+        <svg class="spider" viewBox="0 0 100 100" fill="none">
+            <!-- Body -->
+            <ellipse cx="50" cy="55" rx="10" ry="14" fill="#fff"/>
+            <circle cx="50" cy="40" r="7" fill="#fff"/>
+            <!-- Front legs (up) -->
+            <path d="M45 38c-5-15-2-25 5-35" stroke="#fff" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+            <path d="M55 38c5-15 2-25-5-35" stroke="#fff" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+            <!-- Middle legs -->
+            <path d="M42 45c-15-5-25-2-35 5" stroke="#fff" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+            <path d="M58 45c15-5 25-2 35 5" stroke="#fff" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+            <path d="M42 52c-18 0-28 5-38 15" stroke="#fff" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+            <path d="M58 52c18 0 28 5 38 15" stroke="#fff" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+            <!-- Back legs (down) -->
+            <path d="M44 60c-12 8-20 18-25 28" stroke="#fff" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+            <path d="M56 60c12 8 20 18 25 28" stroke="#fff" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+        </svg>
+    </div>
+
+    <!-- Audio Control -->
+    <div class="audio-control">
+        <button class="audio-btn" id="audioToggle">&#x1F50A;</button>
+        <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="70">
+    </div>
+
+    <script>
+        (function() {
+            'use strict';
+            
+            const canvas = document.getElementById('clockCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            let size = 500;
+            let dpr = window.devicePixelRatio || 1;
+            let centerX, centerY, radius;
+
+            // Advanced Audio System
+            const AudioEngine = {
+                ctx: null,
+                enabled: true,
+                volume: 0.7,
+                lastSecond: -1,
+                isTick: true,
+                
+                init() {
+                    if (this.ctx) return;
+                    try {
+                        const AudioContext = window.AudioContext || window.webkitAudioContext;
+                        this.ctx = new AudioContext();
+                        this.createReverbImpulse();
+                    } catch(e) {
+                        console.log('Audio not supported');
+                    }
+                },
+
+                // Create reverb impulse response for authentic room sound
+                createReverbImpulse() {
+                    const rate = this.ctx.sampleRate;
+                    const length = rate * 0.5; // 0.5 seconds
+                    const impulse = this.ctx.createBuffer(2, length, rate);
+                    
+                    for (let channel = 0; channel < 2; channel++) {
+                        const data = impulse.getChannelData(channel);
+                        for (let i = 0; i < length; i++) {
+                            // Exponential decay with noise
+                            data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2);
+                        }
+                    }
+                    this.reverbBuffer = impulse;
+                },
+
+                // Mechanical tick sound with harmonics
+                playTick() {
+                    if (!this.enabled || !this.ctx) return;
+                    if (this.ctx.state === 'suspended') this.ctx.resume();
+
+                    const t = this.ctx.currentTime;
+                    const freq = 1200; // Higher pitch for tick
+                    
+                    // Main oscillator - triangle for mechanical character
+                    const osc = this.ctx.createOscillator();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, t);
+                    osc.frequency.exponentialRampToValueAtTime(freq * 0.5, t + 0.02);
+
+                    // Harmonic oscillator - sawtooth for edge
+                    const osc2 = this.ctx.createOscillator();
+                    osc2.type = 'sawtooth';
+                    osc2.frequency.setValueAtTime(freq * 1.5, t);
+                    osc2.frequency.exponentialRampToValueAtTime(freq * 0.7, t + 0.02);
+
+                    // Gain envelope for sharp attack, quick decay
+                    const gain = this.ctx.createGain();
+                    gain.gain.setValueAtTime(0, t);
+                    gain.gain.linearRampToValueAtTime(this.volume * 0.4, t + 0.002);
+                    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+
+                    const gain2 = this.ctx.createGain();
+                    gain2.gain.setValueAtTime(0, t);
+                    gain2.gain.linearRampToValueAtTime(this.volume * 0.15, t + 0.001);
+                    gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+
+                    // Reverb for room acoustics
+                    const reverb = this.ctx.createConvolver();
+                    reverb.buffer = this.reverbBuffer;
+                    const reverbGain = this.ctx.createGain();
+                    reverbGain.gain.value = 0.3;
+
+                    // Stereo panning
+                    const panner = this.ctx.createStereoPanner();
+                    panner.pan.value = -0.3; // Slight left
+
+                    // Connect graph
+                    osc.connect(gain);
+                    osc2.connect(gain2);
+                    
+                    const merger = this.ctx.createGain();
+                    gain.connect(merger);
+                    gain2.connect(merger);
+                    
+                    // Direct + reverb path
+                    merger.connect(panner);
+                    panner.connect(this.ctx.destination);
+                    
+                    merger.connect(reverb);
+                    reverb.connect(reverbGain);
+                    reverbGain.connect(this.ctx.destination);
+
+                    // Play
+                    osc.start(t);
+                    osc.stop(t + 0.05);
+                    osc2.start(t);
+                    osc2.stop(t + 0.03);
+                },
+
+                // Tock sound - slightly different character
+                playTock() {
+                    if (!this.enabled || !this.ctx) return;
+                    if (this.ctx.state === 'suspended') this.ctx.resume();
+
+                    const t = this.ctx.currentTime;
+                    const freq = 900; // Lower pitch for tock
+                    
+                    // Main oscillator
+                    const osc = this.ctx.createOscillator();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, t);
+                    osc.frequency.exponentialRampToValueAtTime(freq * 0.4, t + 0.03);
+
+                    // Thicker sound with sine
+                    const osc2 = this.ctx.createOscillator();
+                    osc2.type = 'sine';
+                    osc2.frequency.setValueAtTime(freq * 0.8, t);
+                    
+                    const gain = this.ctx.createGain();
+                    gain.gain.setValueAtTime(0, t);
+                    gain.gain.linearRampToValueAtTime(this.volume * 0.5, t + 0.003);
+                    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+
+                    const gain2 = this.ctx.createGain();
+                    gain2.gain.setValueAtTime(0, t);
+                    gain2.gain.linearRampToValueAtTime(this.volume * 0.2, t + 0.002);
+                    gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+
+                    // Reverb
+                    const reverb = this.ctx.createConvolver();
+                    reverb.buffer = this.reverbBuffer;
+                    const reverbGain = this.ctx.createGain();
+                    reverbGain.gain.value = 0.4;
+
+                    // Pan right for tock
+                    const panner = this.ctx.createStereoPanner();
+                    panner.pan.value = 0.3;
+
+                    // Connect
+                    osc.connect(gain);
+                    osc2.connect(gain2);
+                    
+                    const merger = this.ctx.createGain();
+                    gain.connect(merger);
+                    gain2.connect(merger);
+                    
+                    merger.connect(panner);
+                    panner.connect(this.ctx.destination);
+                    
+                    merger.connect(reverb);
+                    reverb.connect(reverbGain);
+                    reverbGain.connect(this.ctx.destination);
+
+                    osc.start(t);
+                    osc.stop(t + 0.08);
+                    osc2.start(t);
+                    osc2.stop(t + 0.06);
+                },
+
+                toggle() {
+                    if (!this.ctx) this.init();
+                    this.enabled = !this.enabled;
+                    return this.enabled;
+                },
+
+                setVolume(val) {
+                    this.volume = val / 100;
+                }
+            };
+
+            function resize() {
+                const rect = canvas.parentElement.getBoundingClientRect();
+                size = Math.floor(rect.width);
+                canvas.width = size * dpr;
+                canvas.height = size * dpr;
+                canvas.style.width = size + 'px';
+                canvas.style.height = size + 'px';
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.scale(dpr, dpr);
+                centerX = size / 2;
+                centerY = size / 2;
+                radius = size * 0.4;
+            }
+
+            // Motion physics for gears
+            const GearMotion = {
+                gears: new Map(),
+                
+                getRotation(id, targetRotation) {
+                    if (!this.gears.has(id)) {
+                        this.gears.set(id, { current: targetRotation, velocity: 0 });
+                    }
+                    const gear = this.gears.get(id);
+                    
+                    // Spring physics for smooth motion
+                    const tension = 0.1;
+                    const friction = 0.8;
+                    const delta = targetRotation - gear.current;
+                    
+                    gear.velocity += delta * tension;
+                    gear.velocity *= friction;
+                    gear.current += gear.velocity;
+                    
+                    return gear.current;
+                }
+            };
+
+            function drawGear(x, y, r, teeth, rotation, id) {
+                ctx.save();
+                ctx.translate(x, y);
+                // Apply smooth motion physics
+                const smoothRotation = GearMotion.getRotation(id, rotation);
+                ctx.rotate(smoothRotation);
+                
+                ctx.beginPath();
+                const outerR = r + 8;
+                const innerR = r;
+                
+                for (let i = 0; i < teeth * 2; i++) {
+                    const angle = (Math.PI * 2 * i) / (teeth * 2);
+                    const r1 = i % 2 === 0 ? outerR : innerR;
+                    const px = Math.cos(angle) * r1;
+                    const py = Math.sin(angle) * r1;
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.closePath();
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                
+                // Inner decorative circles
+                ctx.beginPath();
+                ctx.arc(0, 0, r * 0.6, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                ctx.stroke();
+                
+                for (let i = 0; i < 4; i++) {
+                    const angle = (Math.PI / 2) * i;
+                    ctx.beginPath();
+                    ctx.arc(Math.cos(angle) * r * 0.3, Math.sin(angle) * r * 0.3, r * 0.15, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                
+                ctx.restore();
+            }
+
+            function drawClock() {
+                ctx.clearRect(0, 0, size, size);
+                
+                const now = new Date();
+                const ms = now.getMilliseconds();
+                const s = now.getSeconds() + ms / 1000;
+                const m = now.getMinutes() + s / 60;
+                const h = (now.getHours() % 12) + m / 60;
+                
+                // Draw gears at 12, 3, 6, 9 positions like screenshot
+                const gearPositions = [
+                    { angle: -Math.PI / 2, dist: 0.55 }, // 12
+                    { angle: 0, dist: 0.55 },            // 3
+                    { angle: Math.PI / 2, dist: 0.55 },   // 6
+                    { angle: Math.PI, dist: 0.55 }       // 9
+                ];
+                
+                gearPositions.forEach((pos, i) => {
+                    const x = centerX + Math.cos(pos.angle) * radius * pos.dist;
+                    const y = centerY + Math.sin(pos.angle) * radius * pos.dist;
+                    const targetRotation = now.getTime() * 0.001 * (i % 2 === 0 ? 1 : -1) + i;
+                    drawGear(x, y, radius * 0.12, 12, targetRotation, `gear-${i}`);
+                });
+                
+                // Draw numbers 1-12
+                ctx.font = `300 ${size * 0.06}px "Segoe UI", sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                
+                for (let i = 1; i <= 12; i++) {
+                    const angle = (i * Math.PI / 6) - Math.PI / 2;
+                    const r = radius * 0.8;
+                    const x = centerX + Math.cos(angle) * r;
+                    const y = centerY + Math.sin(angle) * r;
+                    ctx.fillText(i.toString(), x, y);
+                }
+                
+                // Hour hand
+                const hourAngle = (h / 12) * Math.PI * 2 - Math.PI / 2;
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 3;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(
+                    centerX + Math.cos(hourAngle) * radius * 0.5,
+                    centerY + Math.sin(hourAngle) * radius * 0.5
+                );
+                ctx.stroke();
+                
+                // Minute hand
+                const minAngle = (m / 60) * Math.PI * 2 - Math.PI / 2;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(
+                    centerX + Math.cos(minAngle) * radius * 0.7,
+                    centerY + Math.sin(minAngle) * radius * 0.7
+                );
+                ctx.stroke();
+                
+                // Second hand with trail effect for motion blur
+                const secAngle = (s / 60) * Math.PI * 2 - Math.PI / 2;
+                
+                // Draw subtle trail behind second hand
+                for (let i = 1; i <= 3; i++) {
+                    const trailAngle = secAngle - (i * 0.02);
+                    const trailAlpha = 0.1 - (i * 0.03);
+                    ctx.strokeStyle = `rgba(255, 255, 255, ${trailAlpha})`;
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(centerX, centerY);
+                    ctx.lineTo(
+                        centerX + Math.cos(trailAngle) * radius * 0.85,
+                        centerY + Math.sin(trailAngle) * radius * 0.85
+                    );
+                    ctx.stroke();
+                }
+                
+                // Main second hand
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(
+                    centerX + Math.cos(secAngle) * radius * 0.85,
+                    centerY + Math.sin(secAngle) * radius * 0.85
+                );
+                ctx.stroke();
+                
+                // Glow effect on second hand tip
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = 'rgba(255, 255, 255, 0.5)';
+                ctx.beginPath();
+                ctx.arc(
+                    centerX + Math.cos(secAngle) * radius * 0.85,
+                    centerY + Math.sin(secAngle) * radius * 0.85,
+                    3, 0, Math.PI * 2
+                );
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                
+                // Center dot
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, 4, 0, Math.PI * 2);
+                ctx.fillStyle = '#fff';
+                ctx.fill();
+
+                // Audio trigger - synchronized with exact second boundary
+                const currentMs = now.getMilliseconds();
+                const sec = now.getSeconds();
+                
+                // Trigger sound within first 50ms of each second for precision
+                if (sec !== AudioEngine.lastSecond && currentMs < 50) {
+                    AudioEngine.lastSecond = sec;
+                    // Small delay to align with visual hand position
+                    setTimeout(() => {
+                        if (AudioEngine.isTick) {
+                            AudioEngine.playTick();
+                        } else {
+                            AudioEngine.playTock();
+                        }
+                        AudioEngine.isTick = !AudioEngine.isTick;
+                    }, currentMs > 20 ? 0 : 20 - currentMs);
+                }
+            }
+
+            function loop() {
+                drawClock();
+                requestAnimationFrame(loop);
+            }
+
+            // Audio controls
+            const audioToggle = document.getElementById('audioToggle');
+            const volumeSlider = document.getElementById('volumeSlider');
+
+            audioToggle.addEventListener('click', () => {
+                const enabled = AudioEngine.toggle();
+                audioToggle.textContent = enabled ? '🔊' : '🔇';
+                audioToggle.style.opacity = enabled ? '1' : '0.5';
+            });
+
+            volumeSlider.addEventListener('input', (e) => {
+                AudioEngine.setVolume(e.target.value);
+            });
+
+            // Initialize audio on first user interaction
+            document.body.addEventListener('click', () => {
+                AudioEngine.init();
+            }, { once: true });
+
+            resize();
+            loop();
+            window.addEventListener('resize', () => {
+                dpr = window.devicePixelRatio || 1;
+                resize();
+            });
+        })();
+    </script>
+</body>
+</html>
