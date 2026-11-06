@@ -4,7 +4,7 @@ A simple and interactive Clock project built using HTML, CSS, and JavaScript. Th
 
 ## 🚀 Live Demo
 
-[View Clock Project](https://github.com/Ishan13-dev/Clock)
+[View Clock Project](https://clock-eight-teal.vercel.app/)
 
 ## 📌 About the Project
 
@@ -84,6 +84,7 @@ Open `index.html` in your browser or use the Live Server extension in Visual Stu
 
 - GitHub: [@Ishan13-dev](https://github.com/Ishan13-dev)
 - Repository: [Clock](https://github.com/Ishan13-dev/Clock)
+- Live: [Ishan's clock](https://clock-eight-teal.vercel.app/)
 
 ## ⭐ Support
 
